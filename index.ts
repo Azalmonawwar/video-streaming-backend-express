@@ -1,12 +1,25 @@
 import express from "express";
-
+import passport from "passport";
+import "./config/passport.js";
+import authRoutes from "./routes/auth.route.js";
+import cors from "cors";
+import cookieParser from "cookie-parser";
 const app = express();
-const port = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3000;
+app.use(
+  cors({
+    origin: "*/",
+    credentials: true,
+  }),
+);
 
-app.get("/", (req, res): void => {
-  res.send("Hello, World!");
-});
+app.use(cookieParser());
+app.use(express.json());
+app.use(passport.initialize());
 
-app.listen(port, () => {
-  console.log(`Server is running on http://localhost:${port}`);
+app.use("/auth", authRoutes);
+
+app.listen(PORT, () => {
+  console.log(`Server is running on http://localhost:${PORT}`);
 });
+export default app;
