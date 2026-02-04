@@ -1,7 +1,8 @@
 import express from "express";
 import passport from "passport";
-import "./config/passport.js";
-import authRoutes from "./routes/auth.route.js";
+import "./config/passport.ts";
+import authRoutes from "./routes/auth.route.ts";
+import videoRoutes from "./routes/video.route.ts";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 const app = express();
@@ -18,6 +19,7 @@ app.use(express.json());
 app.use(passport.initialize());
 
 app.use("/auth", authRoutes);
+app.use("/video", videoRoutes);
 
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);

@@ -13,7 +13,7 @@ const videoSchema = new mongoose.Schema(
       type: String,
     },
 
-    videoUrl: {
+    s3Key: {
       type: String,
       required: true, // CDN / S3 / Cloudinary URL
     },
