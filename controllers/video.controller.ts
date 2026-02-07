@@ -7,61 +7,76 @@ import { isSubscribed } from "../utils/isSubscribe.ts";
 import { getStreamingUrl } from "../utils/cloudfront.ts";
 
 export const getUploadPresignedUrl = async (req, res) => {
-  const { fileName, fileType } = req.body;
+  try {
+    const { fileName, fileType } = req.body;
 
-  if (!fileName || !fileType) {
-    return res.status(400).json({ message: "File info missing" });
+    if (!fileName || !fileType) {
+      return res.status(400).json({ message: "File info missing" });
+    }
+
+    const s3Key = `videos/${req.user._id}/${Date.now()}-${fileName}`;
+
+    const command = new PutObjectCommand({
+      Bucket: process.env.S3_BUCKET,
+      Key: s3Key,
+      ContentType: fileType,
+    });
+
+    const uploadUrl = await getSignedUrl(s3, command, {
+      expiresIn: 60 * 5, // 5 minutes
+    });
+
+    res.json({
+      uploadUrl,
+      s3Key,
+    });
+  } catch (error) {
+    console.error("Error generating presigned URL:", error);
+    res.status(500).json({ message: "Could not generate upload URL" });
   }
-
-  const s3Key = `videos/${req.user._id}/${Date.now()}-${fileName}`;
-
-  const command = new PutObjectCommand({
-    Bucket: process.env.S3_BUCKET,
-    Key: s3Key,
-    ContentType: fileType,
-  });
-
-  const uploadUrl = await getSignedUrl(s3, command, {
-    expiresIn: 60 * 5, // 5 minutes
-  });
-
-  res.json({
-    uploadUrl,
-    s3Key,
-  });
 };
 
 export const saveVideoMetadata = async (req, res) => {
-  const { title, description, s3Key } = req.body;
+  try {
+    const { title, description, s3Key } = req.body;
 
-  const video = await Video.create({
-    title,
-    description,
-    s3Key,
-    owner: req.user._id,
-  });
+    const video = await Video.create({
+      title,
+      description,
+      s3Key,
+      owner: req.user._id,
+    });
 
-  res.status(201).json(video);
+    res.status(201).json(video);
+  } catch (error) {
+    console.error("Error saving video metadata:", error);
+    res.status(500).json({ message: "Could not save video metadata" });
+  }
 };
 
 export const getVideoPresignedUrl = async (req, res) => {
-  const video = await Video.findById(req.params.id)
-    .populate("owner")
-    .select("-password");
+  try {
+    const video = await Video.findById(req.params.id)
+      .populate("owner")
+      .select("-password");
 
-  if (!video) {
-    return res.status(404).json({ message: "Video not found" });
+    if (!video) {
+      return res.status(404).json({ message: "Video not found" });
+    }
+
+    const allowed = await isSubscribed(req.user._id, video.owner._id);
+
+    if (!allowed) {
+      return res.status(403).json({
+        message: "Subscribe to watch this video",
+      });
+    }
+
+    const url = getStreamingUrl(video.s3Key);
+
+    res.json({ url });
+  } catch (error) {
+    console.error("Error getting video URL:", error);
+    res.status(500).json({ message: "Could not get video URL" });
   }
-
-  const allowed = await isSubscribed(req.user._id, video.owner._id);
-
-  if (!allowed) {
-    return res.status(403).json({
-      message: "Subscribe to watch this video",
-    });
-  }
-
-  const url = getStreamingUrl(video.s3Key);
-
-  res.json({ url });
 };
