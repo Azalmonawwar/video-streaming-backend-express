@@ -20,12 +20,12 @@ const videoSchema = new mongoose.Schema(
 
     thumbnailUrl: {
       type: String,
-      required: true,
+      required: false,
     },
 
     duration: {
       type: Number, // in seconds
-      required: true,
+      required: false,
     },
 
     owner: {

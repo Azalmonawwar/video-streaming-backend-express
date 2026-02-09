@@ -4,18 +4,33 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { s3 } from "../config/aws.ts";
 import Video from "../db/models/video.model.ts";
 import { isSubscribed } from "../utils/isSubscribe.ts";
+import jwt from "jsonwebtoken";
 import { getStreamingUrl } from "../utils/cloudfront.ts";
+import User from "../db/models/user.model.ts";
+import { getCurrentUser } from "./auth.controller.ts";
 
 export const getUploadPresignedUrl = async (req, res) => {
   try {
-    const { fileName, fileType } = req.body;
+    const token = req.cookies?.token;
+
+    if (!token) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET as string);
+    const user = await User.findById(decoded?.id).select("-password");
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    console.log("Authenticated user:", user); // Debug log
+
+    const { title, fileName, fileType } = req.body;
 
     if (!fileName || !fileType) {
       return res.status(400).json({ message: "File info missing" });
     }
 
-    const s3Key = `videos/${req.user._id}/${Date.now()}-${fileName}`;
-
+    const s3Key = `videos/${user._id}/${Date.now()}-${fileName}`;
     const command = new PutObjectCommand({
       Bucket: process.env.S3_BUCKET,
       Key: s3Key,
@@ -26,7 +41,14 @@ export const getUploadPresignedUrl = async (req, res) => {
       expiresIn: 60 * 5, // 5 minutes
     });
 
+    const video = await Video.create({
+      title,
+      s3Key,
+      owner: user._id,
+    });
+
     res.json({
+      video,
       uploadUrl,
       s3Key,
     });
